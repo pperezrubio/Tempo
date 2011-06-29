@@ -21,6 +21,12 @@ from flask import request
 
 from tempo import db
 
+TASK_TO_ACTION_ID = {
+    'snapshot': 1,
+}
+
+ACTION_ID_TO_TASK = dict([(id, name) for name, id in TASK_TO_ACTION_ID.items()])
+
 
 app = flask.Flask('Tempo')
 resource_name = 'periodic_task'
@@ -31,13 +37,13 @@ resource = "/%s/<id>" % resources_name
 @app.route("/%s" % resources_name)
 def task_index():
     """Returns a list of all of the tasks"""
-    return _new_response({resources_name: db.task_get_all()})
+    return _new_response({resources_name: [make_task_dict(t) for t in db.task_get_all()]})
 
 
 @app.route(resource)
 def task_show(id):
     """Returns a specific task record by id"""
-    return _new_response({resource_name: db.task_get(id)})
+    return _new_response({resource_name: make_task_dict(db.task_get(id))})
 
 
 @app.route(resource, methods=['PUT', 'POST'])
@@ -101,8 +107,32 @@ def _create_or_update_task(id, body_dict):
     for key in keys:
         if key not in body_dict:
             raise Exception("Missing key %s in body" % key)
-    task = db.task_create_or_update(id, body_dict)
-    return task
+    values = {
+        'uuid': id,
+        'instance_uuid': body_dict['instance_uuid'],
+        'cron_schedule': body_dict['recurrence'],
+        'action_id': TASK_TO_ACTION_ID[body_dict['task']],
+    }
+    return make_task_dict(db.task_create_or_update(id, values))
+
+
+def make_task_dict(task):
+    """
+    Create a dict representation of an image which we can use to
+    serialize the task.
+    """
+    task_dict = {
+        'id': task.id,
+        'created_at': task.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'updated_at': task.updated_at and task.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'deleted_at': task.deleted_at and task.deleted_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'deleted': task.deleted,
+        'uuid': task.uuid,
+        'instance_uuid': task.instance_uuid,
+        'recurrence': task.cron_schedule,
+        'task': ACTION_ID_TO_TASK[task.action_id],
+    }
+    return task_dict
 
 
 def start(*args, **kwargs):
