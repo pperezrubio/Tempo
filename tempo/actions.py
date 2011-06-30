@@ -20,8 +20,9 @@ actions_by_id = {}
 
 
 def register_action(c):
-    actions_by_name[c.name] = c
-    actions_by_id[c.id] = c
+    i = c()
+    actions_by_name[i.name] = i
+    actions_by_id[i.id] = i
 
     return c
 
@@ -30,3 +31,6 @@ def register_action(c):
 class Snapshot(object):
     name = 'snapshot'
     id = 1
+
+    def command(self, task):
+        return '/bin/echo snapshot %s >> /tmp/snapshot' % task.instance_uuid
