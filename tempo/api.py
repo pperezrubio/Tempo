@@ -25,7 +25,8 @@ TASK_TO_ACTION_ID = {
     'snapshot': 1,
 }
 
-ACTION_ID_TO_TASK = dict([(id, name) for name, id in TASK_TO_ACTION_ID.items()])
+ACTION_ID_TO_TASK = dict([(id, name)
+                         for name, id in TASK_TO_ACTION_ID.items()])
 
 
 app = flask.Flask('Tempo')
@@ -37,7 +38,8 @@ resource = "/%s/<id>" % resources_name
 @app.route("/%s" % resources_name)
 def task_index():
     """Returns a list of all of the tasks"""
-    return _new_response({resources_name: [make_task_dict(t) for t in db.task_get_all()]})
+    return _new_response({resources_name: [make_task_dict(t)
+                          for t in db.task_get_all()]})
 
 
 @app.route(resource)
@@ -124,8 +126,10 @@ def make_task_dict(task):
     task_dict = {
         'id': task.id,
         'created_at': task.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'updated_at': task.updated_at and task.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'deleted_at': task.deleted_at and task.deleted_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'updated_at': task.updated_at and
+                      task.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'deleted_at': task.deleted_at and
+                      task.deleted_at.strftime('%Y-%m-%d %H:%M:%S'),
         'deleted': task.deleted,
         'uuid': task.uuid,
         'instance_uuid': task.instance_uuid,
