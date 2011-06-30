@@ -19,7 +19,7 @@
 import flask
 from flask import request
 
-from tempo import db
+from tempo import db, cronspec
 
 TASK_TO_ACTION_ID = {
     'snapshot': 1,
@@ -109,6 +109,10 @@ def _create_or_update_task(id, body_dict):
     for key in keys:
         if key not in body_dict:
             raise Exception("Missing key %s in body" % key)
+
+    # Validate values
+    cronspec.parse(body_dict['recurrence'])
+
     values = {
         'uuid': id,
         'instance_uuid': body_dict['instance_uuid'],
