@@ -18,6 +18,7 @@
 
 import flask
 from flask import request
+import subprocess
 
 from tempo import db, actions, cronspec
 
@@ -31,14 +32,14 @@ resource = "/%s/<id>" % resources_name
 @app.route("/%s" % resources_name)
 def task_index():
     """Returns a list of all of the tasks"""
-    return _new_response({resources_name: [make_task_dict(t)
+    return _new_response({resources_name: [_make_task_dict(t)
                           for t in db.task_get_all()]})
 
 
 @app.route(resource)
 def task_show(id):
     """Returns a specific task record by id"""
-    return _new_response({resource_name: make_task_dict(db.task_get(id))})
+    return _new_response({resource_name: _make_task_dict(db.task_get(id))})
 
 
 @app.route(resource, methods=['PUT', 'POST'])
@@ -69,6 +70,7 @@ def task_delete(id):
     except Exception, e:
         return _log_and_fail(e)
     db.task_delete(id)
+    _update_crontab()
     res = app.make_response('')
     res.status_code = 204
     return res
@@ -107,15 +109,18 @@ def _create_or_update_task(id, body_dict):
     cronspec.parse(body_dict['recurrence'])
 
     values = {
+        'deleted': False,
         'uuid': id,
         'instance_uuid': body_dict['instance_uuid'],
         'cron_schedule': body_dict['recurrence'],
         'action_id': actions.actions_by_name[body_dict['task']].id,
     }
-    return make_task_dict(db.task_create_or_update(id, values))
+    task_dict = _make_task_dict(db.task_create_or_update(id, values))
+    _update_crontab()
+    return task_dict
 
 
-def make_task_dict(task):
+def _make_task_dict(task):
     """
     Create a dict representation of an image which we can use to
     serialize the task.
@@ -134,6 +139,19 @@ def make_task_dict(task):
         'task': actions.actions_by_id[task.action_id].name,
     }
     return task_dict
+
+
+def _update_crontab():
+    lines = []
+    for task in db.task_get_all():
+        action = actions.actions_by_id[task.action_id]
+        lines.append('%s * * %s\n' % (task.cron_schedule, action.command(task)))
+
+    PIPE = subprocess.PIPE
+    p = subprocess.Popen(['crontab', '-'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate(''.join(lines))
+    print repr(stdout)
+    print repr(stderr)
 
 
 def start(*args, **kwargs):
