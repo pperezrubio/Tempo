@@ -68,7 +68,9 @@ def get_session(autocommit=True, expire_on_commit=False):
 
 def task_get_all():
     session = get_session()
-    return session.query(models.Task).all()
+    return session.query(models.Task).\
+                   filter_by(deleted=False).\
+                   all()
 
 
 def task_get(uuid, session=None):
@@ -76,6 +78,7 @@ def task_get(uuid, session=None):
     try:
         return session.query(models.Task).\
                        filter_by(uuid=uuid).\
+                       filter_by(deleted=False).\
                        one()
     except exc.NoResultFound:
         raise NotFoundException("No task found with UUID %s" % uuid)
