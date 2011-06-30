@@ -57,7 +57,7 @@ class TempoBase(object):
     def delete(self, session=None):
         """Delete this object."""
         self.deleted = True
-        self.deleted_at = utils.utcnow()
+        self.deleted_at = datetime.datetime.utcnow()
         self.save(session=session)
 
     def __setitem__(self, key, value):
