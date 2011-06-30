@@ -22,7 +22,6 @@ from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import exc
 from sqlalchemy.orm import sessionmaker
 
-from tempo import config
 from tempo.db import models, migration
 
 _ENGINE = None
