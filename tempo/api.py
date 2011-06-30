@@ -19,14 +19,7 @@
 import flask
 from flask import request
 
-from tempo import db, cronspec
-
-TASK_TO_ACTION_ID = {
-    'snapshot': 1,
-}
-
-ACTION_ID_TO_TASK = dict([(id, name)
-                         for name, id in TASK_TO_ACTION_ID.items()])
+from tempo import db, actions, cronspec
 
 
 app = flask.Flask('Tempo')
@@ -117,7 +110,7 @@ def _create_or_update_task(id, body_dict):
         'uuid': id,
         'instance_uuid': body_dict['instance_uuid'],
         'cron_schedule': body_dict['recurrence'],
-        'action_id': TASK_TO_ACTION_ID[body_dict['task']],
+        'action_id': actions.actions_by_name[body_dict['task']].id,
     }
     return make_task_dict(db.task_create_or_update(id, values))
 
@@ -138,7 +131,7 @@ def make_task_dict(task):
         'uuid': task.uuid,
         'instance_uuid': task.instance_uuid,
         'recurrence': task.cron_schedule,
-        'task': ACTION_ID_TO_TASK[task.action_id],
+        'task': actions.actions_by_id[task.action_id].name,
     }
     return task_dict
 
