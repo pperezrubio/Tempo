@@ -150,8 +150,12 @@ def _update_crontab():
     PIPE = subprocess.PIPE
     p = subprocess.Popen(['crontab', '-'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
     stdout, stderr = p.communicate(''.join(lines))
-    print repr(stdout)
-    print repr(stderr)
+    if p.returncode:
+       app.logger.error('Error running crontab update: %s' % p.returncode)
+    if stdout:
+        app.logger.error('Output from crontab update:\n\n%s' % stdout)
+    if stderr:
+        app.logger.error('Error from crontab update:\n\n%s' % stderr)
 
 
 def start(*args, **kwargs):
