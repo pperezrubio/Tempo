@@ -21,33 +21,26 @@ from tempo.db.migrate_repo.schema import (
     Boolean, DateTime, Integer, String, Text, create_tables, drop_tables)
 
 
-def define_tasks_table(meta):
-    tasks = Table('tasks', meta,
-        Column('id', Integer(), primary_key=True, nullable=False),
-        Column('uuid', String(36)),
-        Column('instance_uuid', String(36)),
-        Column('cron_schedule', String(255)),
-        Column('action_id', Integer()),
-        Column('created_at', DateTime(), nullable=False),
-        Column('updated_at', DateTime()),
-        Column('deleted_at', DateTime()),
-        Column('deleted', Boolean(), nullable=False, default=False,
-               index=True),
-        mysql_engine='InnoDB',
-        useexisting=True)
+meta = MetaData()
 
-    return tasks
+tasks = Table('tasks', meta,
+    Column('id', Integer(), primary_key=True, nullable=False),
+    Column('uuid', String(36)),
+    Column('instance_uuid', String(36)),
+    Column('cron_schedule', String(255)),
+    Column('action_id', Integer()),
+    Column('created_at', DateTime(), nullable=False),
+    Column('updated_at', DateTime()),
+    Column('deleted_at', DateTime()),
+    Column('deleted', Boolean(), nullable=False, default=False,
+           index=True))
 
 
 def upgrade(migrate_engine):
-    meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_tasks_table(meta)]
-    create_tables(tables)
+    create_tables([tasks])
 
 
 def downgrade(migrate_engine):
-    meta = MetaData()
     meta.bind = migrate_engine
-    tables = [define_tasks_table(meta)]
-    drop_tables(tables)
+    drop_tables([tasks])
