@@ -23,6 +23,7 @@ import stubout
 from tempo import api
 from tempo import db
 
+TEST_UUID = '00010203-0405-0607-0809-0a0b0c0d0e0f'
 
 class APITest(unittest.TestCase):
     def setUp(self):
@@ -58,7 +59,7 @@ class APITest(unittest.TestCase):
             return 'foo'
 
         self.stubs.Set(db, 'task_get', stubbed_show)
-        res = self.app.get('/%s/1' % api.resources_name)
+        res = self.app.get('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(res.status_code, 200)
         body = json.loads(res.data)
         self.assertEqual(body[api.resource_name], 'foo')
@@ -73,7 +74,7 @@ class APITest(unittest.TestCase):
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
-        res = self.app.post('/%s/1' % api.resources_name,
+        res = self.app.post('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, True)
@@ -89,7 +90,7 @@ class APITest(unittest.TestCase):
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
-        res = self.app.put('/%s/1' % api.resources_name,
+        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, True)
@@ -104,7 +105,7 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'instance_uuid': 'abcdef', 'recurrence': '0 0 0'}
-        res = self.app.put('/%s/1' % api.resources_name,
+        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, False)
@@ -119,7 +120,7 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'task': 'snapshot', 'recurrence': '0 0 0'}
-        res = self.app.put('/%s/1' % api.resources_name,
+        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, False)
@@ -134,7 +135,7 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'task': 'snapshot', 'instance_uuid': 'abcdef'}
-        res = self.app.put('/%s/1' % api.resources_name,
+        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, False)
@@ -147,7 +148,7 @@ class APITest(unittest.TestCase):
             self.called = True
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
-        res = self.app.delete('/%s/1' % api.resources_name)
+        res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(self.called, True)
         self.assertEqual(res.status_code, 204)
 
@@ -156,7 +157,7 @@ class APITest(unittest.TestCase):
             raise db.NotFoundException()
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
-        res = self.app.delete('/%s/1' % api.resources_name)
+        res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(res.status_code, 404)
 
     def test_delete_item_random_breakage_fails(self):
@@ -164,5 +165,5 @@ class APITest(unittest.TestCase):
             raise Exception("KABOOM")
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
-        res = self.app.delete('/%s/1' % api.resources_name)
+        res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(res.status_code, 500)
