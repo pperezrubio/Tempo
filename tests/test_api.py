@@ -38,6 +38,10 @@ class APITest(unittest.TestCase):
         self.assertEqual(res.status_code, 404)
 
     def test_index_no_items(self):
+        def stubbed_index():
+            return []
+
+        self.stubs.Set(db, 'task_get_all', stubbed_index)
         res = self.app.get('/%s' % api.resources_name)
         body = json.loads(res.data)
         self.assertEqual(res.status_code, 200)
