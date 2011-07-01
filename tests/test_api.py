@@ -82,8 +82,8 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'task': 'backup', 'instance_uuid': 'abcdef',
-                'recurrence': '0 0 0 0 0'}
+        body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
+                'recurrence': '0 0 0'}
         res = self.app.post('/%s/1' % api.resources_name,
                             content_type='application/json',
                             data=json.dumps(body))
@@ -98,8 +98,8 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'task': 'backup', 'instance_uuid': 'abcdef',
-                'recurrence': '0 0 0 0 0'}
+        body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
+                'recurrence': '0 0 0'}
         res = self.app.put('/%s/1' % api.resources_name,
                             content_type='application/json',
                             data=json.dumps(body))
@@ -114,7 +114,7 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'instance_uuid': 'abcdef', 'recurrence': '0 0 0 0 0'}
+        body = {'instance_uuid': 'abcdef', 'recurrence': '0 0 0'}
         res = self.app.put('/%s/1' % api.resources_name,
                             content_type='application/json',
                             data=json.dumps(body))
@@ -129,7 +129,7 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'task': 'backup', 'recurrence': '0 0 0 0 0'}
+        body = {'task': 'snapshot', 'recurrence': '0 0 0'}
         res = self.app.put('/%s/1' % api.resources_name,
                             content_type='application/json',
                             data=json.dumps(body))
@@ -144,7 +144,7 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'task': 'backup', 'instance_uuid': 'abcdef'}
+        body = {'task': 'snapshot', 'instance_uuid': 'abcdef'}
         res = self.app.put('/%s/1' % api.resources_name,
                             content_type='application/json',
                             data=json.dumps(body))
