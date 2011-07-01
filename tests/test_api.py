@@ -53,6 +53,7 @@ class APITest(unittest.TestCase):
             return elements
 
         self.stubs.Set(db, 'task_get_all', stubbed_index)
+        self.stubs.Set(api, '_make_task_dict', lambda t: t)
         res = self.app.get('/%s' % api.resources_name)
         self.assertEqual(res.status_code, 200)
         body = json.loads(res.data)
@@ -63,6 +64,7 @@ class APITest(unittest.TestCase):
             return 'foo'
 
         self.stubs.Set(db, 'task_get', stubbed_show)
+        self.stubs.Set(api, '_make_task_dict', lambda t: t)
         res = self.app.get('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(res.status_code, 200)
         body = json.loads(res.data)
@@ -76,6 +78,8 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
+        self.stubs.Set(api, '_make_task_dict', lambda t: t)
+        self.stubs.Set(api, '_update_crontab', lambda: None)
         body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
         res = self.app.post('/%s/%s' % (api.resources_name, TEST_UUID),
@@ -92,6 +96,8 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
+        self.stubs.Set(api, '_make_task_dict', lambda t: t)
+        self.stubs.Set(api, '_update_crontab', lambda: None)
         body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
         res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
@@ -152,6 +158,7 @@ class APITest(unittest.TestCase):
             self.called = True
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
+        self.stubs.Set(api, '_update_crontab', lambda: None)
         res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(self.called, True)
         self.assertEqual(res.status_code, 204)
