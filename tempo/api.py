@@ -69,7 +69,6 @@ def task_delete(id):
         return _not_found(e)
     except Exception, e:
         return _log_and_fail(e)
-    db.task_delete(id)
     _update_crontab()
     res = app.make_response('')
     res.status_code = 204
