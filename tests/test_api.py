@@ -71,17 +71,6 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        res = self.app.post('/%s/1' % api.resources_name)
-        self.assertEqual(res.status_code, 202)
-
-    def test_create_item(self):
-        self.called = False
-
-        def stubbed_create(id, values):
-            self.called = True
-            return values
-
-        self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
         res = self.app.post('/%s/1' % api.resources_name,
