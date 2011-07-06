@@ -102,7 +102,7 @@ if __name__ == '__main__':
     level = configure_logging(opts)
     tempo.db.configure_db(opts)
 
-    tempo.notifier.configure_notifier('logging', logging_level=level)
+    tempo.notifier.configure_notifier('rabbit')
 
     if len(sys.argv) < 2:
         print "tempo-task-wrapper <uuid> '<cmd>'"

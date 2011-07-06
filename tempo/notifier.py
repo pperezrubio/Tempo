@@ -3,16 +3,17 @@ import logging
 import uuid
 
 from kombu.connection import BrokerConnection
-from kombu.messaging import Exchange, Queue, Consumer, Producer
 
 from tempo import flags
 
 
 FLAGS = flags.FLAGS
 
-flags.DEFINE_string('logging_notifier_level', 'DEBUG',
-                    'logging level to use for LoggingNotifier')
+flags.DEFINE_string('rabbit_notification_topic', 'tempo_notifications',
+                    'topic used for rabbit notifications')
 
+flags.DEFINE_string('default_notification_level', 'INFO',
+                    'what priority should be used for notifications')
 
 WARN = 'WARN'
 INFO = 'INFO'
@@ -92,7 +93,7 @@ class LoggingNotifier(Notifier):
         self._setup_logger()
 
     def _setup_logger(self):
-        logging_level_str = FLAGS.logging_notifier_level
+        logging_level_str = FLAGS.default_notification_level
         str2log_level = { 
             'DEBUG': logging.DEBUG,
             'INFO': logging.INFO,
@@ -112,15 +113,29 @@ class LoggingNotifier(Notifier):
 
 class RabbitNotifier(Notifier):
     def __init__(self, **kwargs):
-        super(LoggingNotifier, self).__init__(**kwargs)
+        super(RabbitNotifier, self).__init__(**kwargs)
+        self.connection = BrokerConnection(
+            hostname=FLAGS.rabbit_host,
+            userid=FLAGS.rabbit_userid,
+            password=FLAGS.rabbit_password,
+            virtual_host=FLAGS.rabbit_virtual_host,
+            ssl=FLAGS.rabbit_use_ssl)
 
-    def notify(self, msg):
-        self.logger.debug(msg)
+    def notify(self, message):
+        priority = message.get('priority',
+                               FLAGS.default_notification_level)
+        topic = "%s.%s" % (FLAGS.rabbit_notification_topic, priority)
+        queue = self.connection.SimpleQueue(topic)
+        queue.put(message, serializer="json")
+        queue.close()
+
 
 __driver = None
 def configure_notifier(driver, **kwargs):
     global __driver
     if driver == "logging":
         __driver = LoggingNotifier(**kwargs)
+    elif driver == "rabbit":
+        __driver = RabbitNotifier(**kwargs)
     else:
         __driver = NoopNotifier(**kwargs)

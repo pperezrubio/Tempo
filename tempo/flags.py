@@ -265,15 +265,14 @@ def _get_my_ip():
 # http://code.google.com/p/python-gflags/source/browse/trunk/gflags.py#a9
 DEFINE_string('my_ip', _get_my_ip(), 'host ip address')
 DEFINE_bool('verbose', False, 'show debug output')
-DEFINE_boolean('fake_rabbit', False, 'use a fake rabbit')
-DEFINE_bool('fake_network', False,
-            'should we use fake network devices and addresses')
+
 DEFINE_string('rabbit_host', 'localhost', 'rabbit host')
 DEFINE_integer('rabbit_port', 5672, 'rabbit port')
 DEFINE_bool('rabbit_use_ssl', False, 'connect over SSL')
 DEFINE_string('rabbit_userid', 'guest', 'rabbit userid')
 DEFINE_string('rabbit_password', 'guest', 'rabbit password')
 DEFINE_string('rabbit_virtual_host', '/', 'rabbit virtual host')
+
+# NOTE(sirp): not used yet, possible TODO
 DEFINE_integer('rabbit_retry_interval', 10, 'rabbit connection retry interval')
 DEFINE_integer('rabbit_max_retries', 12, 'rabbit connection attempts')
-DEFINE_string('control_exchange', 'nova', 'the main exchange to connect to')
