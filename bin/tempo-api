@@ -29,22 +29,30 @@ if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
 import tempo.api
+import tempo.db
 
 
 def parse_opts():
     parser = optparse.OptionParser()
-    parser.add_option('-p', '--port', dest='port',
+    parser.add_option('-p', '--port', dest='port', type='int',
                       help='The port to run the API server on', default=8080)
     parser.add_option('--debug', dest='debug', action='store_true',
                       help='Enable debug mode', default=False)
+    parser.add_option('--verbose', dest='verbose', action='store_true',
+                      help='Enable verbose logging', default=False)
     parser.add_option('--daemonized', dest='daemonized', action='store_true',
                       help='Run the API as an eventlet WSGI app',
                       default=False)
+    parser.add_option('--sql_connection', dest='sql_connection',
+                      help='SQL Connection', default='sqlite:///tempo.sqlite')
+    parser.add_option('--sql_idle_timeout', dest='sql_idle_timeout',
+                      help='SQL Idle Timeout', type='int', default=3600)
     options, args = parser.parse_args()
     return options, args
 
 if __name__ == '__main__':
     opts, args = parse_opts()
+    tempo.db.configure_db(opts)
     daemonized = opts.__dict__.pop('daemonized')
     if daemonized:
         # TODO(mdietz): there's a cleaner way to do this, but this works well
@@ -55,4 +63,4 @@ if __name__ == '__main__':
         with daemon.DaemonContext():
             wsgi.server(eventlet.listen(('', opts.port)), tempo.api.app)
     else:
-        tempo.api.start(*args, **opts.__dict__)
+        tempo.api.start(*args, port=opts.port, debug=opts.debug)

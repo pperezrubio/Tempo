@@ -18,8 +18,9 @@
 
 import flask
 from flask import request
+import subprocess
 
-from tempo import db
+from tempo import db, actions, cronspec
 
 
 app = flask.Flask('Tempo')
@@ -31,13 +32,14 @@ resource = "/%s/<id>" % resources_name
 @app.route("/%s" % resources_name)
 def task_index():
     """Returns a list of all of the tasks"""
-    return _new_response({resources_name: db.task_get_all()})
+    return _new_response({resources_name: [_make_task_dict(t)
+                          for t in db.task_get_all()]})
 
 
 @app.route(resource)
 def task_show(id):
     """Returns a specific task record by id"""
-    return _new_response({resource_name: db.task_get(id)})
+    return _new_response({resource_name: _make_task_dict(db.task_get(id))})
 
 
 @app.route(resource, methods=['PUT', 'POST'])
@@ -67,7 +69,7 @@ def task_delete(id):
         return _not_found(e)
     except Exception, e:
         return _log_and_fail(e)
-    db.task_delete(id)
+    _update_crontab()
     res = app.make_response('')
     res.status_code = 204
     return res
@@ -101,8 +103,58 @@ def _create_or_update_task(id, body_dict):
     for key in keys:
         if key not in body_dict:
             raise Exception("Missing key %s in body" % key)
-    task = db.task_create_or_update(id, body_dict)
-    return task
+
+    # Validate values
+    cronspec.parse(body_dict['recurrence'])
+
+    values = {
+        'deleted': False,
+        'uuid': id,
+        'instance_uuid': body_dict['instance_uuid'],
+        'cron_schedule': body_dict['recurrence'],
+        'action_id': actions.actions_by_name[body_dict['task']].id,
+    }
+    task_dict = _make_task_dict(db.task_create_or_update(id, values))
+    _update_crontab()
+    return task_dict
+
+
+def _make_task_dict(task):
+    """
+    Create a dict representation of an image which we can use to
+    serialize the task.
+    """
+    task_dict = {
+        'id': task.id,
+        'created_at': task.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'updated_at': task.updated_at and
+                      task.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'deleted_at': task.deleted_at and
+                      task.deleted_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'deleted': task.deleted,
+        'uuid': task.uuid,
+        'instance_uuid': task.instance_uuid,
+        'recurrence': task.cron_schedule,
+        'task': actions.actions_by_id[task.action_id].name,
+    }
+    return task_dict
+
+
+def _update_crontab():
+    lines = []
+    for task in db.task_get_all():
+        action = actions.actions_by_id[task.action_id]
+        lines.append('%s * * %s\n' % (task.cron_schedule, action.command(task)))
+
+    PIPE = subprocess.PIPE
+    p = subprocess.Popen(['crontab', '-'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate(''.join(lines))
+    if p.returncode:
+       app.logger.error('Error running crontab update: %s' % p.returncode)
+    if stdout:
+        app.logger.error('Output from crontab update:\n\n%s' % stdout)
+    if stderr:
+        app.logger.error('Error from crontab update:\n\n%s' % stderr)
 
 
 def start(*args, **kwargs):

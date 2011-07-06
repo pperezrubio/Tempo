@@ -15,22 +15,22 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-
-class NotFoundException(Exception):
-    pass
-
-
-def task_get_all():
-    return []
+actions_by_name = {}
+actions_by_id = {}
 
 
-def task_get(id):
-    return {}
+def register_action(c):
+    i = c()
+    actions_by_name[i.name] = i
+    actions_by_id[i.id] = i
+
+    return c
 
 
-def task_create_or_update(id, values):
-    return values
+@register_action
+class Snapshot(object):
+    name = 'snapshot'
+    id = 1
 
-
-def task_delete(id):
-    return None
+    def command(self, task):
+        return '/bin/echo snapshot %s >> /tmp/snapshot' % task.instance_uuid
