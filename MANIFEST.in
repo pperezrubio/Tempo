@@ -1,0 +1,1 @@
+include tempo/db/migrate_repo/migrate.cfg
