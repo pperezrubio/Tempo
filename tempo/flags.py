@@ -264,6 +264,8 @@ def _get_my_ip():
 # Define any app-specific flags in their own files, docs at:
 # http://code.google.com/p/python-gflags/source/browse/trunk/gflags.py#a9
 DEFINE_string('my_ip', _get_my_ip(), 'host ip address')
+DEFINE_string('host', 'host', 'my hostname')
+
 DEFINE_bool('verbose', False, 'show debug output')
 
 DEFINE_string('rabbit_host', 'localhost', 'rabbit host')

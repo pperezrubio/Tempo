@@ -9,6 +9,9 @@ from tempo import flags
 
 FLAGS = flags.FLAGS
 
+flags.DEFINE_string('notification_driver', 'logging',
+                    'driver to be used for notification')
+
 flags.DEFINE_string('rabbit_notification_topic', 'tempo_notifications',
                     'topic used for rabbit notifications')
 
@@ -71,7 +74,8 @@ def notify(publisher_id, event_type, priority, payload):
                payload=payload,
                timestamp=str(datetime.datetime.utcnow()))
 
-    __driver.notify(msg)
+    driver = _get_notifier_driver(FLAGS.notification_driver)()
+    driver.notify(msg)
 
 
 class Notifier(object):
@@ -94,7 +98,7 @@ class LoggingNotifier(Notifier):
 
     def _setup_logger(self):
         logging_level_str = FLAGS.default_notification_level
-        str2log_level = { 
+        str2log_level = {
             'DEBUG': logging.DEBUG,
             'INFO': logging.INFO,
             'WARN': logging.WARN,
@@ -130,12 +134,10 @@ class RabbitNotifier(Notifier):
         queue.close()
 
 
-__driver = None
-def configure_notifier(driver, **kwargs):
-    global __driver
+def _get_notifier_driver(driver):
     if driver == "logging":
-        __driver = LoggingNotifier(**kwargs)
+        return LoggingNotifier
     elif driver == "rabbit":
-        __driver = RabbitNotifier(**kwargs)
+        return RabbitNotifier
     else:
-        __driver = NoopNotifier(**kwargs)
+        return NoopNotifier

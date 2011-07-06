@@ -64,7 +64,7 @@ def execute_cmd(task_uuid, cmd):
         if return_code is not None:
             payload['return_code'] = return_code
 
-        publisher_id = "host"  # FIXME: we need configuration
+        publisher_id = FLAGS.host
         priority = tempo.notifier.DEBUG
         tempo.notifier.notify(publisher_id, event_type, priority, payload)
 
@@ -102,19 +102,17 @@ if __name__ == '__main__':
     level = configure_logging(opts)
     tempo.db.configure_db(opts)
 
-    tempo.notifier.configure_notifier('rabbit')
-
-    if len(sys.argv) < 2:
+    if len(sys.argv) < 3:
         print "tempo-task-wrapper <uuid> '<cmd>'"
         sys.exit(1)
 
     task_uuid = sys.argv[1]
     cmd = sys.argv[2]
 
-    ##try:
-    ##    task = tempo.db.task_get(uuid)
-    ##except tempo.db.api.NotFoundException as e:
-    ##    print >> sys.stderr, "Task '%(uuid)s' not found" % locals()
-    ##    sys.exit(1)
+    try:
+        task = tempo.db.task_get(uuid)
+    except tempo.db.api.NotFoundException as e:
+        print >> sys.stderr, "Task '%(uuid)s' not found" % locals()
+        sys.exit(1)
 
     execute_cmd(task_uuid, cmd)
