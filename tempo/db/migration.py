@@ -26,7 +26,7 @@ try:
 except ImportError:
     from migrate import exceptions as versioning_exceptions
 
-logger = logging.getLogger('tempo.registry.db.migration')
+logger = logging.getLogger('tempo.db.migration')
 
 
 class DatabaseMigrationError(Exception):
