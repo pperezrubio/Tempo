@@ -2,9 +2,8 @@ import datetime
 import logging
 import uuid
 
-from kombu.connection import BrokerConnection
-
 from tempo import flags
+from tempo import queue
 
 
 FLAGS = flags.FLAGS
@@ -118,12 +117,7 @@ class LoggingNotifier(Notifier):
 class RabbitNotifier(Notifier):
     def __init__(self, **kwargs):
         super(RabbitNotifier, self).__init__(**kwargs)
-        self.connection = BrokerConnection(
-            hostname=FLAGS.rabbit_host,
-            userid=FLAGS.rabbit_userid,
-            password=FLAGS.rabbit_password,
-            virtual_host=FLAGS.rabbit_virtual_host,
-            ssl=FLAGS.rabbit_use_ssl)
+        self.connection = queue.get_connection()
 
     def notify(self, message):
         priority = message.get('priority',
