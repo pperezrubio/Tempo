@@ -14,9 +14,12 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import logging
 
 actions_by_name = {}
 actions_by_id = {}
+
+logger = logging.getLogger('tempo.actions')
 
 
 def register_action(c):
@@ -33,4 +36,9 @@ class Snapshot(object):
     id = 1
 
     def command(self, task):
-        return '/bin/echo snapshot %s >> /tmp/snapshot' % task.instance_uuid
+        task_uuid = task.uuid
+        instance_uuid = task.instance_uuid
+        snapshot_name = "snapshot"
+        cmd =  "nova-snapshot.sh %(task_uuid)s %(instance_uuid)s %(snapshot_name)s" % locals()
+        logger.debug("cmd => %s" % cmd)
+        return cmd
