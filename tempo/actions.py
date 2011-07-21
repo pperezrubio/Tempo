@@ -14,6 +14,7 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+
 import logging
 
 actions_by_name = {}
@@ -37,8 +38,7 @@ class Snapshot(object):
 
     def command(self, task):
         task_uuid = task.uuid
-        instance_uuid = task.instance_uuid
         snapshot_name = "snapshot"
-        cmd =  "nova-snapshot.sh %(task_uuid)s %(instance_uuid)s %(snapshot_name)s" % locals()
+        cmd = "tempo-cron-snapshot %(task_uuid)s %(snapshot_name)s" % locals()
         logger.debug("cmd => %s" % cmd)
         return cmd

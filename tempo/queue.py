@@ -8,6 +8,7 @@ FLAGS = flags.FLAGS
 _CONNECTION = None
 
 def get_connection():
+    global _CONNECTION
     if _CONNECTION is None:
         _CONNECTION = BrokerConnection(
                 hostname=FLAGS.rabbit_host,

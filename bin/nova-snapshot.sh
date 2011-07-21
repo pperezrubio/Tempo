@@ -8,5 +8,5 @@ elif [ -r /etc/novarc ]; then
   . /etc/novarc
 fi
 
-tempo-task-wrapper $1 "nova image-create $2 $3"
+nova image-create $1 $2
 
