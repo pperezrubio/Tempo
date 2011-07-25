@@ -1,0 +1,69 @@
+#!/usr/bin/env python
+# vim: tabstop=4 shiftwidth=4 softtabstop=4
+
+# Copyright 2011 Rackspace
+# All Rights Reserved.
+#
+#    Licensed under the Apache License, Version 2.0 (the "License");
+#    you may not use this file except in compliance with the License.
+#    You may obtain a copy of the License at
+#
+#        http://www.apache.org/licenses/LICENSE-2.0
+#
+#    Unless required by applicable law or agreed to in writing, software
+#    distributed under the License is distributed on an "AS IS" BASIS,
+#    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#    See the License for the specific language governing permissions and
+#    limitations under the License.
+
+"""Wrapper to cron to queue snapshot jobs."""
+
+import optparse
+import os
+import sys
+
+possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
+                                   os.pardir,
+                                   os.pardir))
+if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
+    sys.path.insert(0, possible_topdir)
+
+import tempo.db
+import tempo.queue
+
+
+# TODO: refactor to share code with tempo-api?
+def parse_opts():
+    parser = optparse.OptionParser()
+    parser.add_option('--debug', dest='debug', action='store_true',
+                      help='Enable debug mode', default=False)
+    parser.add_option('--verbose', dest='verbose', action='store_true',
+                      help='Enable verbose logging', default=False)
+    parser.add_option('--sql_connection', dest='sql_connection',
+                      help='SQL Connection', default='sqlite:///tempo.sqlite')
+    parser.add_option('--sql_idle_timeout', dest='sql_idle_timeout',
+                      help='SQL Idle Timeout', type='int', default=3600)
+    options, args = parser.parse_args()
+    return options, args
+
+opts, args = parse_opts()
+tempo.db.configure_db(opts)
+
+if len(args) < 2:
+    sys.exit('Need at least task UUID and snapshot name as arguments')
+
+task_uuid = args[0]
+snapshot_name = args[1]
+
+topic = 'tempo.snapshot'
+message = {
+    'task_uuid': task_uuid,
+    'snapshot_name': snapshot_name,
+}
+
+connection = tempo.queue.get_connection()
+
+queue = connection.SimpleQueue(topic)
+queue.put(message, serializer="json")
+queue.close()
+

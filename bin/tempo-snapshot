@@ -24,7 +24,10 @@ Handles checking of return codes and publishing of notifications.
 import logging
 import optparse
 import os
+import subprocess
 import sys
+
+from kombu import Exchange, Queue, Consumer
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
@@ -36,11 +39,12 @@ import tempo.api
 import tempo.db
 import tempo.notifier
 import tempo.flags
+import tempo.queue
 
 
 FLAGS = tempo.flags.FLAGS
 
-logger = logging.getLogger('tempo-task-wrapper')
+logger = logging.getLogger('tempo-snapshot')
 
 
 # TODO: refactor to share code with tempo-api?
@@ -58,7 +62,7 @@ def parse_opts():
     return options, args
 
 
-def execute_cmd(task_uuid, cmd):
+def execute_cmd(task_uuid, instance_uuid, snapshot_name):
     def _notify(event_type, return_code=None):
         payload = {'task_uuid': task_uuid}
         if return_code is not None:
@@ -68,10 +72,13 @@ def execute_cmd(task_uuid, cmd):
         priority = tempo.notifier.DEBUG
         tempo.notifier.notify(publisher_id, event_type, priority, payload)
 
+    cmd = ['nova-snapshot.sh', instance_uuid, snapshot_name]
+
     logger.debug("task '%(task_uuid)s' started: '%(cmd)s'" % locals())
     _notify('Started Task') 
 
-    return_code = os.system(cmd)
+    p = subprocess.Popen(cmd)
+    return_code = os.waitpid(p.pid, 0)[1]
     if return_code == 0:
         logger.debug("task '%(task_uuid)s' finished: returned successfully"
                      % locals())
@@ -97,22 +104,36 @@ def configure_logging(opts):
     logger.addHandler(stream_handler)
     return level
 
-if __name__ == '__main__':
-    opts, args = parse_opts()
-    level = configure_logging(opts)
-    tempo.db.configure_db(opts)
+def process_request(body, message):
+    message.ack()
 
-    if len(sys.argv) < 3:
-        print "tempo-task-wrapper <uuid> '<cmd>'"
-        sys.exit(1)
-
-    task_uuid = sys.argv[1]
-    cmd = sys.argv[2]
+    task_uuid = body['task_uuid']
+    snapshot_name = body.get('snapshot_name', 'snapshot')
 
     try:
         task = tempo.db.task_get(task_uuid)
     except tempo.db.api.NotFoundException as e:
         print >> sys.stderr, "Task '%(task_uuid)s' not found" % locals()
-        sys.exit(1)
+        return
 
-    execute_cmd(task_uuid, cmd)
+    execute_cmd(task_uuid, task.instance_uuid, snapshot_name)
+
+if __name__ == '__main__':
+    opts, args = parse_opts()
+    level = configure_logging(opts)
+    tempo.db.configure_db(opts)
+
+    # Loop processing queue entries
+    tempo_exchange = Exchange('tempo', 'direct', durable=True)
+    snapshot_queue = Queue('tempo.snapshot', exchange=tempo_exchange,
+                            key='snapshot')
+
+    connection = tempo.queue.get_connection()
+    channel = connection.channel()
+
+    consumer = Consumer(channel, snapshot_queue)
+    consumer.register_callback(process_request)
+    consumer.consume()
+
+    while True:
+        connection.drain_events()
