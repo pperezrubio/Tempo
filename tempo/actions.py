@@ -42,3 +42,26 @@ class Snapshot(object):
         cmd = "tempo-cron-snapshot %(task_uuid)s %(snapshot_name)s" % locals()
         logger.debug("cmd => %s" % cmd)
         return cmd
+
+
+class _Backup(object):
+    def command(self, task):
+        task_uuid = task.uuid
+        backup_type = self.backup_type
+        cmd = "tempo-cron-backup %(task_uuid)s %(backup_type)s" % locals()
+        logger.debug("cmd => %s" % cmd)
+        return cmd
+
+
+@register_action
+class DailyBackup(_Backup):
+    name = 'daily_backup'
+    id = 2
+    backup_type = 'daily'
+
+
+@register_action
+class WeeklyBackup(_Backup):
+    name = 'weekly_backup'
+    id = 3
+    backup_type = 'weekly'

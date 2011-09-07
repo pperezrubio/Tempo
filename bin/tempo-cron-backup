@@ -50,15 +50,15 @@ opts, args = parse_opts()
 tempo.db.configure_db(opts)
 
 if len(args) < 2:
-    sys.exit('Need at least task UUID and snapshot name as arguments')
+    sys.exit('Need at least task UUID and backup type as arguments')
 
 task_uuid = args[0]
-snapshot_name = args[1]
+backup_type = args[1]
 
-topic = 'tempo.snapshot'
+topic = 'tempo.backup'
 message = {
     'task_uuid': task_uuid,
-    'snapshot_name': snapshot_name,
+    'backup_type': backup_type,
 }
 
 connection = tempo.queue.get_connection()

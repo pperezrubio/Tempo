@@ -44,7 +44,7 @@ import tempo.queue
 
 FLAGS = tempo.flags.FLAGS
 
-logger = logging.getLogger('tempo-snapshot')
+logger = logging.getLogger('tempo-backup')
 
 
 # TODO: refactor to share code with tempo-api?
@@ -62,7 +62,7 @@ def parse_opts():
     return options, args
 
 
-def execute_cmd(task_uuid, instance_uuid, snapshot_name):
+def execute_cmd(task_uuid, instance_uuid, backup_type):
     def _notify(event_type, return_code=None):
         payload = {'task_uuid': task_uuid}
         if return_code is not None:
@@ -72,7 +72,9 @@ def execute_cmd(task_uuid, instance_uuid, snapshot_name):
         priority = tempo.notifier.DEBUG
         tempo.notifier.notify(publisher_id, event_type, priority, payload)
 
-    cmd = ['nova-snapshot.sh', instance_uuid, snapshot_name]
+    backup_name = backup_type  # Daily backups are just named 'daily'
+    rotation = "7"
+    cmd = ['nova-backup.sh', instance_uuid, backup_name, backup_type, rotation]
 
     logger.debug("task '%(task_uuid)s' started: '%(cmd)s'" % locals())
     _notify('Started Task')
@@ -109,7 +111,7 @@ def process_request(body, message):
     message.ack()
 
     task_uuid = body['task_uuid']
-    snapshot_name = body.get('snapshot_name', 'snapshot')
+    backup_type = body['backup_type']
 
     try:
         task = tempo.db.task_get(task_uuid)
@@ -117,7 +119,7 @@ def process_request(body, message):
         print >> sys.stderr, "Task '%(task_uuid)s' not found" % locals()
         return
 
-    execute_cmd(task_uuid, task.instance_uuid, snapshot_name)
+    execute_cmd(task_uuid, task.instance_uuid, backup_type)
 
 if __name__ == '__main__':
     opts, args = parse_opts()
@@ -126,13 +128,13 @@ if __name__ == '__main__':
 
     # Loop processing queue entries
     tempo_exchange = Exchange('tempo', 'direct', durable=True)
-    snapshot_queue = Queue('tempo.snapshot', exchange=tempo_exchange,
-                            key='snapshot')
+    backup_queue = Queue('tempo.backup', exchange=tempo_exchange,
+                            key='backup')
 
     connection = tempo.queue.get_connection()
     channel = connection.channel()
 
-    consumer = Consumer(channel, snapshot_queue)
+    consumer = Consumer(channel, backup_queue)
     consumer.register_callback(process_request)
     consumer.consume()
 

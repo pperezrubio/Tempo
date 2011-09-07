@@ -16,6 +16,7 @@
 #    limitations under the License.
 
 """Interface with a Tempo server"""
+import uuid
 
 import requiem
 from requiem import jsclient
@@ -51,11 +52,12 @@ class TempoClient(jsclient.JSONClient):
         return resp.obj[resource_name]
 
     @requiem.restmethod('PUT', resource)
-    def task_create(self, req, id, task, uuid, recurrence):
+    def _task_create_update(self, req, id, task, instance_uuid, recurrence):
         """Create or update an existing task."""
 
         # Build the task object we're going to send
-        obj = dict(task=task, instance_uuid=uuid, recurrence=recurrence)
+        obj = dict(task=task, instance_uuid=instance_uuid,
+                   recurrence=recurrence)
 
         # Attach it to the request
         self._attach_obj(req, obj)
@@ -65,7 +67,17 @@ class TempoClient(jsclient.JSONClient):
 
         # Return the result
         return resp.obj[resource_name]
-    task_update = task_create
+
+    def task_create(self, task, instance_uuid, recurrence):
+        """Create a task."""
+        id = str(uuid.uuid4())
+        return self._task_create_update(
+            id, task, instance_uuid, recurrence)
+
+    def task_update(self, id, task, instance_uuid, recurrence):
+        """Update an existing task."""
+        return self._task_create_update(
+            id, task, instance_uuid, recurrence)
 
     @requiem.restmethod('DELETE', resource)
     def task_delete(self, req, id):
