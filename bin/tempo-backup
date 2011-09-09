@@ -21,13 +21,8 @@
 Handles checking of return codes and publishing of notifications.
 """
 
-import logging
-import optparse
 import os
-import subprocess
 import sys
-
-from kombu import Exchange, Queue, Consumer
 
 possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
                                    os.pardir,
@@ -35,112 +30,23 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-import tempo.api
-import tempo.db
-import tempo.notifier
-import tempo.flags
-import tempo.queue
+import tempo.command
 
 
-FLAGS = tempo.flags.FLAGS
+class BackupQueueWorker(tempo.command.QueueWorker):
+    def make_command(self, task, body, message):
+        instance_uuid = task.instance_uuid
+        backup_name = backup_type = body['backup_type']
+        rotation = "7"
+        cmd = ['nova-backup.sh', instance_uuid, backup_name, backup_type,
+               rotation]
+        return cmd
 
-logger = logging.getLogger('tempo-backup')
-
-
-# TODO: refactor to share code with tempo-api?
-def parse_opts():
-    parser = optparse.OptionParser()
-    parser.add_option('--debug', dest='debug', action='store_true',
-                      help='Enable debug mode', default=False)
-    parser.add_option('--verbose', dest='verbose', action='store_true',
-                      help='Enable verbose logging', default=False)
-    parser.add_option('--sql_connection', dest='sql_connection',
-                      help='SQL Connection', default='sqlite:///tempo.sqlite')
-    parser.add_option('--sql_idle_timeout', dest='sql_idle_timeout',
-                      help='SQL Idle Timeout', type='int', default=3600)
-    options, args = parser.parse_args()
-    return options, args
-
-
-def execute_cmd(task_uuid, instance_uuid, backup_type):
-    def _notify(event_type, return_code=None):
-        payload = {'task_uuid': task_uuid}
-        if return_code is not None:
-            payload['return_code'] = return_code
-
-        publisher_id = FLAGS.host
-        priority = tempo.notifier.DEBUG
-        tempo.notifier.notify(publisher_id, event_type, priority, payload)
-
-    backup_name = backup_type  # Daily backups are just named 'daily'
-    rotation = "7"
-    cmd = ['nova-backup.sh', instance_uuid, backup_name, backup_type, rotation]
-
-    logger.debug("task '%(task_uuid)s' started: '%(cmd)s'" % locals())
-    _notify('Started Task')
-
-    PIPE = subprocess.PIPE
-    p = subprocess.Popen(
-        cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = p.communicate()
-    return_code = p.returncode
-
-    if return_code == 0:
-        logger.debug("task '%(task_uuid)s' finished: returned successfully"
-                     % locals())
-        _notify('Finished Task')
-    else:
-        logger.error("task '%(task_uuid)s' errored: ret=%(return_code)s"
-                     % locals())
-        _notify('Errored Task', return_code=return_code)
-
-
-def configure_logging(opts):
-    logger.setLevel(logging.DEBUG)
-    stream_handler = logging.StreamHandler()
-
-    if opts.debug:
-        level = logging.DEBUG
-    elif opts.verbose:
-        level = logging.INFO
-    else:
-        level = logging.WARN
-
-    stream_handler.setLevel(level)
-    logger.addHandler(stream_handler)
-    return level
-
-
-def process_request(body, message):
-    message.ack()
-
-    task_uuid = body['task_uuid']
-    backup_type = body['backup_type']
-
-    try:
-        task = tempo.db.task_get(task_uuid)
-    except tempo.db.api.NotFoundException as e:
-        print >> sys.stderr, "Task '%(task_uuid)s' not found" % locals()
-        return
-
-    execute_cmd(task_uuid, task.instance_uuid, backup_type)
 
 if __name__ == '__main__':
-    opts, args = parse_opts()
-    level = configure_logging(opts)
-    tempo.db.configure_db(opts)
-
-    # Loop processing queue entries
-    tempo_exchange = Exchange('tempo', 'direct', durable=True)
-    backup_queue = Queue('tempo.backup', exchange=tempo_exchange,
-                            key='backup')
-
-    connection = tempo.queue.get_connection()
-    channel = connection.channel()
-
-    consumer = Consumer(channel, backup_queue)
-    consumer.register_callback(process_request)
-    consumer.consume()
-
-    while True:
-        connection.drain_events()
+    worker = BackupQueueWorker(exchange='tempo',
+                               queue='tempo.backup',
+                               key='backup',
+                               logger_name='tempo-backup')
+    worker.configure()
+    worker.run()
