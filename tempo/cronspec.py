@@ -239,5 +239,6 @@ class cronspec(object):
                              self._orig_hour or "*",
                              self._orig_day_of_week or "*")
 
+
 def parse(spec):
     return cronspec(*spec.split(' '))

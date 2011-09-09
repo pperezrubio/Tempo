@@ -18,7 +18,6 @@
 
 """Wrapper to cron to queue snapshot jobs."""
 
-import optparse
 import os
 import sys
 
@@ -28,42 +27,15 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-import tempo.db
-import tempo.queue
+import tempo.command
 
-
-# TODO: refactor to share code with tempo-api?
-def parse_opts():
-    parser = optparse.OptionParser()
-    parser.add_option('--debug', dest='debug', action='store_true',
-                      help='Enable debug mode', default=False)
-    parser.add_option('--verbose', dest='verbose', action='store_true',
-                      help='Enable verbose logging', default=False)
-    parser.add_option('--sql_connection', dest='sql_connection',
-                      help='SQL Connection', default='sqlite:///tempo.sqlite')
-    parser.add_option('--sql_idle_timeout', dest='sql_idle_timeout',
-                      help='SQL Idle Timeout', type='int', default=3600)
+if __name__ == '__main__':
+    parser = tempo.command.make_options_parser()
     options, args = parser.parse_args()
-    return options, args
 
-opts, args = parse_opts()
-tempo.db.configure_db(opts)
+    if len(args) < 2:
+        sys.exit('Need at least task UUID and snapshot name as arguments')
 
-if len(args) < 2:
-    sys.exit('Need at least task UUID and snapshot name as arguments')
-
-task_uuid = args[0]
-snapshot_name = args[1]
-
-topic = 'tempo.snapshot'
-message = {
-    'task_uuid': task_uuid,
-    'snapshot_name': snapshot_name,
-}
-
-connection = tempo.queue.get_connection()
-
-queue = connection.SimpleQueue(topic)
-queue.put(message, serializer="json")
-queue.close()
-
+    topic = 'tempo.snapshot'
+    message = dict(task_uuid=args[0], snapshot_name=args[1])
+    tempo.command.publish_message(topic, message)

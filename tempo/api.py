@@ -140,21 +140,35 @@ def _make_task_dict(task):
     return task_dict
 
 
-def _update_crontab():
-    lines = []
-    for task in db.task_get_all():
-        action = actions.actions_by_id[task.action_id]
-        lines.append('%s * * %s\n' % (task.cron_schedule, action.command(task)))
+def _make_crontab_line_for_task(task):
+    action = actions.actions_by_id[task.action_id]
+    minute, hour, day_of_week = task.cron_schedule.split(' ')
+    day_of_month = "*"
+    month = "*"
+    schedule = ' '.join([minute, hour, day_of_month, month, day_of_week])
+    line = '%s %s' % (schedule, action.command(task))
+    return line
 
+
+def _write_cron_data(cron_data):
     PIPE = subprocess.PIPE
-    p = subprocess.Popen(['crontab', '-'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = p.communicate(''.join(lines))
+    p = subprocess.Popen(
+        ['crontab', '-'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate(cron_data)
     if p.returncode:
-       app.logger.error('Error running crontab update: %s' % p.returncode)
+        app.logger.error('Error running crontab update: %s' % p.returncode)
     if stdout:
         app.logger.error('Output from crontab update:\n\n%s' % stdout)
     if stderr:
         app.logger.error('Error from crontab update:\n\n%s' % stderr)
+
+
+def _update_crontab():
+    lines = [_make_crontab_line_for_task(task) for task in db.task_get_all()]
+    # NOTE(sirp): cron requires a trailing newline on the final entry,
+    # otherwise it won't install the new cron entries
+    cron_data = '\n'.join(lines) + '\n'
+    _write_cron_data(cron_data)
 
 
 def start(*args, **kwargs):

@@ -16,11 +16,9 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-""" Wrapper script use to run Tempo jobs.
+"""Wrapper to cron to queue snapshot jobs."""
 
-Handles checking of return codes and publishing of notifications.
-"""
-
+import optparse
 import os
 import sys
 
@@ -32,19 +30,13 @@ if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
 
 import tempo.command
 
-
-class SnapshotQueueWorker(tempo.command.QueueWorker):
-    def make_command(self, task, body, message):
-        instance_uuid = task.instance_uuid
-        snapshot_name = body.get('snapshot_name', 'snapshot')
-        cmd = ['nova-snapshot.sh', instance_uuid, snapshot_name]
-        return cmd
-
-
 if __name__ == '__main__':
-    worker = SnapshotQueueWorker(exchange='tempo',
-                                 queue='tempo.snapshot',
-                                 key='snapshot',
-                                 logger_name='tempo-snapshot')
-    worker.configure()
-    worker.run()
+    parser = tempo.command.make_options_parser()
+    options, args = parser.parse_args()
+
+    if len(args) < 2:
+        sys.exit('Need at least task UUID and backup type as arguments')
+
+    topic = 'tempo.backup'
+    message = dict(task_uuid=args[0], backup_type=args[1])
+    tempo.command.publish_message(topic, message)

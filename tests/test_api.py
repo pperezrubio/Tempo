@@ -25,6 +25,7 @@ from tempo import db
 
 TEST_UUID = '00010203-0405-0607-0809-0a0b0c0d0e0f'
 
+
 class APITest(unittest.TestCase):
     def setUp(self):
         self.app = api.app.test_client()
@@ -178,3 +179,60 @@ class APITest(unittest.TestCase):
         self.stubs.Set(db, 'task_delete', stubbed_delete)
         res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
         self.assertEqual(res.status_code, 500)
+
+
+class TestCronOutput(APITest):
+    """
+    Recurrence is specified as an abbreviated crontab line w/ 3 parts:
+
+        1. minute
+        2. hour
+        3. day of week
+
+    This test ensures that the abbreviated cron spec is generates a valid
+    crontab entry.
+    """
+    def setUp(self):
+        super(TestCronOutput, self).setUp()
+        self.stub_rvs = {}
+
+        class FakeModel(object):
+            def __init__(self, values):
+                self.__dict__.update(values)
+
+        def stubbed_create(id, values):
+            self.stub_rvs['create'] = FakeModel(values)
+            return values
+
+        def stubbed_get_all():
+            task = self.stub_rvs['create']
+            return [task]
+
+        def stubbed_write_cron_data(cron_data):
+            self.stub_rvs['write_cron_data'] = cron_data
+
+        self.stubs.Set(db, 'task_create_or_update', stubbed_create)
+        self.stubs.Set(db, 'task_get_all', stubbed_get_all)
+        self.stubs.Set(api, '_make_task_dict', lambda t: t)
+        self.stubs.Set(api, '_write_cron_data', stubbed_write_cron_data)
+
+    def assertProperlyGeneratedCron(self, recurrence, expected):
+        body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
+                'recurrence': recurrence}
+        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
+                            content_type='application/json',
+                            data=json.dumps(body))
+        self.assertEqual(res.status_code, 202)
+
+        expected = '%s tempo-cron-snapshot %s snapshot' % (expected, TEST_UUID)
+        cron_data = self.stub_rvs['write_cron_data']
+        self.assertEqual(cron_data, expected)
+
+    def test_create_hourly_start_at_beginning_of_hour(self):
+        self.assertProperlyGeneratedCron('0 * *', '0 * * * *')
+
+    def test_create_daily_start_at_midnight(self):
+        self.assertProperlyGeneratedCron('0 0 *', '0 0 * * *')
+
+    def test_create_weekly_start_on_sunday_at_midnight(self):
+        self.assertProperlyGeneratedCron('0 0 0', '0 0 * * 0')

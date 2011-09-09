@@ -7,6 +7,7 @@ FLAGS = flags.FLAGS
 
 _CONNECTION = None
 
+
 def get_connection():
     global _CONNECTION
     if _CONNECTION is None:

@@ -33,18 +33,20 @@ if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
 import tempo.command
 
 
-class SnapshotQueueWorker(tempo.command.QueueWorker):
+class BackupQueueWorker(tempo.command.QueueWorker):
     def make_command(self, task, body, message):
         instance_uuid = task.instance_uuid
-        snapshot_name = body.get('snapshot_name', 'snapshot')
-        cmd = ['nova-snapshot.sh', instance_uuid, snapshot_name]
+        backup_name = backup_type = body['backup_type']
+        rotation = "7"
+        cmd = ['nova-backup.sh', instance_uuid, backup_name, backup_type,
+               rotation]
         return cmd
 
 
 if __name__ == '__main__':
-    worker = SnapshotQueueWorker(exchange='tempo',
-                                 queue='tempo.snapshot',
-                                 key='snapshot',
-                                 logger_name='tempo-snapshot')
+    worker = BackupQueueWorker(exchange='tempo',
+                               queue='tempo.backup',
+                               key='backup',
+                               logger_name='tempo-backup')
     worker.configure()
     worker.run()

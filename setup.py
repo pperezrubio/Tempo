@@ -23,7 +23,7 @@ from setuptools.command.sdist import sdist
 
 setup(
     name='tempo',
-    version='0.1',
+    version='0.12',
     description='Tempo Service',
     license='Apache License (2.0)',
     author='OpenStack',
@@ -42,4 +42,8 @@ setup(
     scripts=['bin/tempo-api',
              'bin/tempo-snapshot',
              'bin/tempo-cron-snapshot',
-             'bin/nova-snapshot.sh'])
+             'bin/nova-snapshot.sh',
+             'bin/tempo-backup',
+             'bin/tempo-cron-backup',
+             'bin/nova-backup.sh'])
+
