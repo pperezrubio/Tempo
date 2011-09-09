@@ -28,7 +28,6 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-import tempo.db
 import tempo.queue
 
 
@@ -39,15 +38,10 @@ def parse_opts():
                       help='Enable debug mode', default=False)
     parser.add_option('--verbose', dest='verbose', action='store_true',
                       help='Enable verbose logging', default=False)
-    parser.add_option('--sql_connection', dest='sql_connection',
-                      help='SQL Connection', default='sqlite:///tempo.sqlite')
-    parser.add_option('--sql_idle_timeout', dest='sql_idle_timeout',
-                      help='SQL Idle Timeout', type='int', default=3600)
     options, args = parser.parse_args()
     return options, args
 
 opts, args = parse_opts()
-tempo.db.configure_db(opts)
 
 if len(args) < 2:
     sys.exit('Need at least task UUID and snapshot name as arguments')
