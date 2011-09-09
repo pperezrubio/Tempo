@@ -77,8 +77,12 @@ def execute_cmd(task_uuid, instance_uuid, snapshot_name):
     logger.debug("task '%(task_uuid)s' started: '%(cmd)s'" % locals())
     _notify('Started Task')
 
-    p = subprocess.Popen(cmd)
-    return_code = os.waitpid(p.pid, 0)[1]
+    PIPE = subprocess.PIPE
+    p = subprocess.Popen(
+        cmd, stdin=PIPE, stdout=PIPE, stderr=PIPE)
+    stdout, stderr = p.communicate()
+    return_code = p.returncode
+
     if return_code == 0:
         logger.debug("task '%(task_uuid)s' finished: returned successfully"
                      % locals())
