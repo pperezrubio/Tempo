@@ -23,7 +23,7 @@ import subprocess
 from tempo import db, actions, cronspec
 
 
-app = flask.Flask('Tempo')
+app = flask.Flask('tempo')
 resource_name = 'periodic_task'
 resources_name = '%ss' % resource_name
 resource = "/%s/<id>" % resources_name
