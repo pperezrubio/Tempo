@@ -224,7 +224,7 @@ class TestCronOutput(APITest):
                             data=json.dumps(body))
         self.assertEqual(res.status_code, 202)
 
-        expected = '%s tempo-cron-snapshot %s snapshot' % (expected, TEST_UUID)
+        expected = '%s tempo-cron-snapshot %s snapshot\n' % (expected, TEST_UUID)
         cron_data = self.stub_rvs['write_cron_data']
         self.assertEqual(cron_data, expected)
 
