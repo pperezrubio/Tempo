@@ -25,10 +25,10 @@ meta = MetaData()
 
 tasks = Table('tasks', meta,
     Column('id', Integer(), primary_key=True, nullable=False),
-    Column('uuid', String(36)),
+    Column('uuid', String(36), unique=True, index=True),
     Column('instance_uuid', String(36)),
     Column('cron_schedule', String(255)),
-    Column('action_id', Integer()),
+    Column('action', String(255)),
     Column('created_at', DateTime(), nullable=False),
     Column('updated_at', DateTime()),
     Column('deleted_at', DateTime()),

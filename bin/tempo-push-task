@@ -16,7 +16,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-"""Wrapper to cron to queue snapshot jobs."""
+"""Push jobs to the Tempo task queue."""
 
 import optparse
 import os
@@ -34,9 +34,10 @@ if __name__ == '__main__':
     parser = tempo.command.make_options_parser()
     options, args = parser.parse_args()
 
-    if len(args) < 2:
-        sys.exit('Need at least task UUID and backup type as arguments')
+    if len(args) < 1:
+        sys.exit('ERROR: Task UUID needed as argument.')
 
-    topic = 'tempo.backup'
-    message = dict(task_uuid=args[0], backup_type=args[1])
+    task_uuid = args[0]
+    topic = 'tempo.tasks'
+    message = dict(task_uuid=task_uuid)
     tempo.command.publish_message(topic, message)

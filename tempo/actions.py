@@ -14,54 +14,26 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-import logging
-
-actions_by_name = {}
-actions_by_id = {}
-
-logger = logging.getLogger('tempo.actions')
+import tempo.command
 
 
-def register_action(c):
-    i = c()
-    actions_by_name[i.name] = i
-    actions_by_id[i.id] = i
-
-    return c
+def snapshot(task):
+    snapshot_name = 'snapshot'
+    tempo.command.execute_cmd(
+        ['nova', 'image-create', task.instance_uuid, snapshot_name])
 
 
-@register_action
-class Snapshot(object):
-    name = 'snapshot'
-    id = 1
-
-    def command(self, task):
-        task_uuid = task.uuid
-        snapshot_name = "snapshot"
-        cmd = "tempo-cron-snapshot %(task_uuid)s %(snapshot_name)s" % locals()
-        logger.debug("cmd => %s" % cmd)
-        return cmd
+def _backup(task, backup_type):
+    backup_name = backup_type
+    rotation = 7
+    tempo.command.execute_cmd(
+        ['nova', 'backup', task.instance_uuid, backup_name, backup_type,
+         str(rotation)])
 
 
-class _Backup(object):
-    def command(self, task):
-        task_uuid = task.uuid
-        backup_type = self.backup_type
-        cmd = "tempo-cron-backup %(task_uuid)s %(backup_type)s" % locals()
-        logger.debug("cmd => %s" % cmd)
-        return cmd
+def daily_backup(task):
+    _backup(task, 'daily')
 
 
-@register_action
-class DailyBackup(_Backup):
-    name = 'daily_backup'
-    id = 2
-    backup_type = 'daily'
-
-
-@register_action
-class WeeklyBackup(_Backup):
-    name = 'weekly_backup'
-    id = 3
-    backup_type = 'weekly'
+def weekly_backup(task):
+    _backup(task, 'weekly')
