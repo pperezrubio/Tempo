@@ -112,7 +112,7 @@ def _create_or_update_task(id, body_dict):
         'uuid': id,
         'instance_uuid': body_dict['instance_uuid'],
         'cron_schedule': body_dict['recurrence'],
-        'action_id': actions.actions_by_name[body_dict['task']].id,
+        'action': body_dict['task']
     }
     task_dict = _make_task_dict(db.task_create_or_update(id, values))
     _update_crontab()
@@ -135,18 +135,17 @@ def _make_task_dict(task):
         'uuid': task.uuid,
         'instance_uuid': task.instance_uuid,
         'recurrence': task.cron_schedule,
-        'task': actions.actions_by_id[task.action_id].name,
+        'task': task.action
     }
     return task_dict
 
 
 def _make_crontab_line_for_task(task):
-    action = actions.actions_by_id[task.action_id]
     minute, hour, day_of_week = task.cron_schedule.split(' ')
     day_of_month = "*"
     month = "*"
     schedule = ' '.join([minute, hour, day_of_month, month, day_of_week])
-    line = '%s %s' % (schedule, action.command(task))
+    line = '%s tempo-push-task %s' % (schedule, task.uuid)
     return line
 
 

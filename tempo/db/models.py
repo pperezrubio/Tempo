@@ -101,4 +101,4 @@ class Task(BASE, TempoBase):
     uuid = Column(String(36))
     instance_uuid = Column(String(36))
     cron_schedule = Column(String(255))
-    action_id = Column(Integer)
+    action = Column(String(255))
