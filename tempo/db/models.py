@@ -20,10 +20,10 @@ SQLAlchemy models for tempo data.
 
 import datetime
 
-from sqlalchemy.orm import object_mapper
 from sqlalchemy import Column, Integer, String, DateTime, Boolean
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy.orm import relationship, backref, object_mapper
 
 
 BASE = declarative_base()
@@ -102,3 +102,19 @@ class Task(BASE, TempoBase):
     instance_uuid = Column(String(36))
     cron_schedule = Column(String(255))
     action = Column(String(255))
+
+
+class TaskParameter(BASE, TempoBase):
+    """Represents a task in the datastore"""
+    __tablename__ = 'task_parameters'
+
+    id = Column(Integer, primary_key=True)
+    task_uuid = Column(String(36))
+    key = Column(String(255))
+    value = Column(String(255))
+    task = relationship(Task,
+                        backref="parameters",
+                        foreign_keys=task_uuid,
+                        primaryjoin='and_('
+                                'TaskParameter.task_uuid == Task.uuid,'
+                                'TaskParameter.deleted == False)')

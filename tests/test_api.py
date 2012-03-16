@@ -81,8 +81,8 @@ class APITest(unittest.TestCase):
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
         self.stubs.Set(api, '_update_crontab', lambda: None)
-        body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
-                'recurrence': '0 0 0'}
+        body = {'action': 'snapshot', 'instance_uuid': 'abcdef',
+                'recurrence': '0 0 0', 'rotation': 3}
         res = self.app.post('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
@@ -99,7 +99,7 @@ class APITest(unittest.TestCase):
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
         self.stubs.Set(api, '_update_crontab', lambda: None)
-        body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
+        body = {'action': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
         res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
@@ -130,7 +130,7 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'task': 'snapshot', 'recurrence': '0 0 0'}
+        body = {'action': 'snapshot', 'recurrence': '0 0 0'}
         res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
@@ -145,7 +145,7 @@ class APITest(unittest.TestCase):
             return values
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
-        body = {'task': 'snapshot', 'instance_uuid': 'abcdef'}
+        body = {'action': 'snapshot', 'instance_uuid': 'abcdef'}
         res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',
                             data=json.dumps(body))
@@ -217,7 +217,7 @@ class TestCronOutput(APITest):
         self.stubs.Set(api, '_write_cron_data', stubbed_write_cron_data)
 
     def assertProperlyGeneratedCron(self, recurrence, expected):
-        body = {'task': 'snapshot', 'instance_uuid': 'abcdef',
+        body = {'action': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': recurrence}
         res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
                             content_type='application/json',

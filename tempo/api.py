@@ -99,7 +99,7 @@ def _new_response(body):
 
 def _create_or_update_task(id, body_dict):
     """Verifies the incoming keys are correct and creates the task record"""
-    keys = ['task', 'instance_uuid', 'recurrence']
+    keys = ['action', 'instance_uuid', 'recurrence']
     for key in keys:
         if key not in body_dict:
             raise Exception("Missing key %s in body" % key)
@@ -112,11 +112,18 @@ def _create_or_update_task(id, body_dict):
         'uuid': id,
         'instance_uuid': body_dict['instance_uuid'],
         'cron_schedule': body_dict['recurrence'],
-        'action': body_dict['task']
+        'action': body_dict['action']
     }
-    task_dict = _make_task_dict(db.task_create_or_update(id, values))
+
+    task_ref = db.task_create_or_update(id, values)
+
+    params = body_dict.get('params')
+    if params:
+        delete = params.pop('__delete', False)
+        db.task_parameter_update(id, params, delete=delete)
+
     _update_crontab()
-    return task_dict
+    return _make_task_dict(task_ref)
 
 
 def _make_task_dict(task):
@@ -135,7 +142,8 @@ def _make_task_dict(task):
         'uuid': task.uuid,
         'instance_uuid': task.instance_uuid,
         'recurrence': task.cron_schedule,
-        'task': task.action
+        'action': task.action,
+        'params': db.task_parameter_get_all_by_task_uuid(task.uuid)
     }
     return task_dict
 

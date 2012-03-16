@@ -14,7 +14,13 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
+import logging
+
 import tempo.command
+import tempo.db
+
+
+logger = logging.getLogger('tempo.actions')
 
 
 def snapshot(task):
@@ -24,8 +30,18 @@ def snapshot(task):
 
 
 def _backup(task, backup_type):
+    task_uuid = task.uuid
+    params = tempo.db.task_parameter_get_all_by_task_uuid(task_uuid)
+    rotation = params.get('rotation', '0')
+
+    try:
+        rotation = int(rotation)
+    except ValueError:
+        logger.error("Invalid rotation '%(rotation)s' for task"
+                     " '%(task_uuid)s'" % locals())
+        rotation = 0
+
     backup_name = backup_type
-    rotation = 7
     tempo.command.execute_cmd(
         ['nova', 'backup', task.instance_uuid, backup_name, backup_type,
          str(rotation)])
