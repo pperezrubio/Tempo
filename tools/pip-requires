@@ -1,3 +1,5 @@
+daemon
+eventlet
 flask
 sqlalchemy
 sqlalchemy-migrate>=0.6,<0.7

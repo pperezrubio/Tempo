@@ -56,8 +56,8 @@ class TempoClient(jsclient.JSONClient):
                             params, clear_params):
         """Create or update an existing task.
 
-        :param action: String representing which action to take (e.g. 'snapshot' or
-                     'daily_backup')
+        :param action: String representing which action to take (
+                       e.g. 'snapshot' or 'daily_backup')
 
         :param instance_uuid: Instance identiier
 
@@ -65,8 +65,8 @@ class TempoClient(jsclient.JSONClient):
 
         :param params: Dict of task parameters to set.
 
-        :param clear_params: True means task parameters will be cleared before being
-                             set to the new value.
+        :param clear_params: True means task parameters will be cleared before
+                             being set to the new value.
         """
         if params is None:
             params = {}

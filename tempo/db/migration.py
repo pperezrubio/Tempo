@@ -1,5 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
+#
 # Copyright 2011 Rackspace
 # All Rights Reserved.
 #
@@ -18,7 +18,10 @@
 import logging
 import os
 
+from tempo import config
+
 from migrate.versioning import api as versioning_api
+
 # See LP bug #719834. sqlalchemy-migrate changed location of
 # exceptions.py after 0.6.0.
 try:
@@ -28,19 +31,17 @@ except ImportError:
 
 logger = logging.getLogger('tempo.db.migration')
 
+CFG = config.CFG
+
 
 class DatabaseMigrationError(Exception):
     pass
 
 
-def db_version(options):
-    """Return the database's current migration number
-
-    :param options: options dict
-    :retval version number
-    """
+def db_version():
+    """Return the database's current migration number."""
     repo_path = get_migrate_repo_path()
-    sql_connection = options.sql_connection
+    sql_connection = CFG.db.sql_connection
     try:
         return versioning_api.db_version(sql_connection, repo_path)
     except versioning_exceptions.DatabaseNotControlledError, e:
@@ -49,73 +50,48 @@ def db_version(options):
         raise DatabaseMigrationError(msg)
 
 
-def upgrade(options, version=None):
-    """Upgrade the database's current migration level
-
-    :param options: options dict
-    :param version: version to upgrade (defaults to latest)
-    :retval version number
-    """
-    db_version(options)  # Ensure db is under migration control
+def upgrade(version=None):
+    """Upgrade the database's current migration level."""
+    db_version()  # Ensure db is under migration control
     repo_path = get_migrate_repo_path()
-    sql_connection = options.sql_connection
+    sql_connection = CFG.db.sql_connection
     version_str = version or 'latest'
     logger.info("Upgrading %(sql_connection)s to version %(version_str)s" %
                 locals())
     return versioning_api.upgrade(sql_connection, repo_path, version)
 
 
-def downgrade(options, version):
-    """Downgrade the database's current migration level
-
-    :param options: options dict
-    :param version: version to downgrade to
-    :retval version number
-    """
-    db_version(options)  # Ensure db is under migration control
+def downgrade(version):
+    """Downgrade the database's current migration level."""
+    db_version()  # Ensure db is under migration control
     repo_path = get_migrate_repo_path()
-    sql_connection = options.sql_connection
+    sql_connection = CFG.db.sql_connection
     logger.info("Downgrading %(sql_connection)s to version %(version)s" %
                 locals())
     return versioning_api.downgrade(sql_connection, repo_path, version)
 
 
-def version_control(options):
-    """Place a database under migration control
-
-    :param options: options dict
-    """
-    sql_connection = options.sql_connection
+def version_control():
+    """Place a database under migration control."""
+    sql_connection = CFG.db.sql_connection
     try:
-        _version_control(options)
+        versioning_api.version_control(
+                CFG.sql_connection, get_migrate_repo_path())
     except versioning_exceptions.DatabaseAlreadyControlledError, e:
         msg = ("database '%(sql_connection)s' is already under migration "
                "control" % locals())
         raise DatabaseMigrationError(msg)
 
 
-def _version_control(options):
-    """Place a database under migration control
-
-    :param options: options dict
-    """
-    repo_path = get_migrate_repo_path()
-    sql_connection = options.sql_connection
-    return versioning_api.version_control(sql_connection, repo_path)
-
-
-def db_sync(options, version=None):
-    """Place a database under migration control and perform an upgrade
-
-    :param options: options dict
-    :retval version number
-    """
+def db_sync(version=None):
+    """Place a database under migration control and perform an upgrade."""
     try:
-        _version_control(options)
+        versioning_api.version_control(
+            CFG.db.sql_connection, get_migrate_repo_path())
     except versioning_exceptions.DatabaseAlreadyControlledError, e:
         pass
 
-    upgrade(options, version=version)
+    upgrade(version=version)
 
 
 def get_migrate_repo_path():

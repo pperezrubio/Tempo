@@ -1,5 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
+#
 # Copyright 2011 Rackspace
 # All Rights Reserved.
 #
@@ -14,79 +14,98 @@
 #    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
-
-
 import flask
 from flask import request
-import subprocess
 
-from tempo import db, actions, cronspec
-
+from tempo import actions
+from tempo import config
+from tempo import cron
+from tempo import cronspec
+from tempo import db
+from tempo.openstack.common import cfg
+from tempo.openstack.common import exception as common_exception
 
 app = flask.Flask('tempo')
-resource_name = 'periodic_task'
-resources_name = '%ss' % resource_name
-resource = "/%s/<id>" % resources_name
+
+CFG = config.CFG
+
+api_opts = [
+    cfg.IntOpt('port',
+               default=8080,
+               help='The port to run the API server on'),
+    cfg.BoolOpt('daemonized',
+                default=False,
+                help='Run the API as an eventlet WSGI app')
+]
+
+api_group = cfg.OptGroup(name='api', title='Tempo API options')
+CFG.register_group(api_group)
+CFG.register_opts(api_opts, group=api_group)
 
 
-@app.route("/%s" % resources_name)
+@app.route("/periodic_tasks")
 def task_index():
     """Returns a list of all of the tasks"""
-    return _new_response({resources_name: [_make_task_dict(t)
-                          for t in db.task_get_all()]})
+    task_dicts = [_make_task_dict(t) for t in db.task_get_all()]
+    body = {'periodic_tasks': task_dicts}
+    return _new_response(body)
 
 
-@app.route(resource)
+@app.route("/periodic_tasks/<id>")
 def task_show(id):
     """Returns a specific task record by id"""
-    return _new_response({resource_name: _make_task_dict(db.task_get(id))})
+    task = db.task_get(id)
+    task_dict = _make_task_dict(task)
+    body = {'periodic_task': task_dict}
+    return _new_response(body)
 
 
-@app.route(resource, methods=['PUT', 'POST'])
+@app.route("/periodic_tasks/<id>", methods=['PUT', 'POST'])
 def task_create_or_update(id):
     """Creates or updates a new task record by id"""
-    res = None
+    if request.content_type.lower() != 'application/json':
+        return _error_response(412, "Invalid content type")
+
     try:
-        if request.content_type.lower() != 'application/json':
-            raise Exception("Invalid content type")
-        body = flask.json.loads(request.data)
-        res = _new_response({resource_name: _create_or_update_task(id, body)})
-        res.status_code = 202
-    except Exception, e:
-        app.logger.error('Exception in create_or_update \n\n%s' % e)
-        res = app.make_response('There was an error processing your request\n')
-        res.content_encoding = 'text/plain'
-        res.status_code = 412
+        req_body = flask.json.loads(request.data)
+    except Exception as e:
+        return _error_response(412, str(e))
+
+    try:
+        task_dict = _create_or_update_task(id, req_body)
+    except common_exception.MissingArgumentError as e:
+        return _error_response(412, str(e))
+    except Exception as e:
+        return _error_response(500, str(e))
+
+    body = {'periodic_task': task_dict}
+    res = _new_response(body)
+    res.status_code = 202
     return res
 
 
-@app.route(resource, methods=['DELETE'])
+@app.route("/periodic_tasks/<id>", methods=['DELETE'])
 def task_delete(id):
     """Deletes a task record"""
     try:
         db.task_delete(id)
-    except db.NotFoundException, e:
-        return _not_found(e)
-    except Exception, e:
-        return _log_and_fail(e)
-    _update_crontab()
-    res = app.make_response('')
-    res.status_code = 204
+    except common_exception.NotFound as e:
+        res = _error_response(404, str(e), log_error=False)
+    except Exception as e:
+        res = _error_response(500, str(e))
+    else:
+        res = app.make_response('')
+        res.status_code = 204
+        cron.update()
+
     return res
 
 
-@app.errorhandler(404)
-def _not_found(error):
-    res = app.make_response(str(error))
-    res.status_code = 404
-    return res
-
-
-def _log_and_fail(error):
-    """Funnel method for logging all unknown exceptions"""
-    res = app.make_response(str(error))
-    res.status_code = 500
-    app.logger.critical(error)
+def _error_response(status_code, error_msg, log_error=True):
+    res = app.make_response(error_msg)
+    res.status_code = status_code
+    if log_error:
+        app.logger.critical(error_msg)
     return res
 
 
@@ -102,7 +121,8 @@ def _create_or_update_task(id, body_dict):
     keys = ['action', 'instance_uuid', 'recurrence']
     for key in keys:
         if key not in body_dict:
-            raise Exception("Missing key %s in body" % key)
+            raise common_exception.MissingArgumentError(
+                    "Missing key '%s' in body" % key)
 
     # Validate values
     cronspec.parse(body_dict['recurrence'])
@@ -115,15 +135,15 @@ def _create_or_update_task(id, body_dict):
         'action': body_dict['action']
     }
 
-    task_ref = db.task_create_or_update(id, values)
+    task = db.task_create_or_update(id, values)
 
     params = body_dict.get('params')
     if params:
         delete = params.pop('__delete', False)
         db.task_parameter_update(id, params, delete=delete)
 
-    _update_crontab()
-    return _make_task_dict(task_ref)
+    cron.update()
+    return _make_task_dict(task)
 
 
 def _make_task_dict(task):
@@ -131,13 +151,14 @@ def _make_task_dict(task):
     Create a dict representation of an image which we can use to
     serialize the task.
     """
-    task_dict = {
+    def _format_date(date):
+        return date.strftime('%Y-%m-%d %H:%M:%S') if date else date
+
+    return {
         'id': task.id,
-        'created_at': task.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'updated_at': task.updated_at and
-                      task.updated_at.strftime('%Y-%m-%d %H:%M:%S'),
-        'deleted_at': task.deleted_at and
-                      task.deleted_at.strftime('%Y-%m-%d %H:%M:%S'),
+        'created_at': _format_date(task.created_at),
+        'updated_at': _format_date(task.updated_at),
+        'deleted_at': _format_date(task.deleted_at),
         'deleted': task.deleted,
         'uuid': task.uuid,
         'instance_uuid': task.instance_uuid,
@@ -145,39 +166,17 @@ def _make_task_dict(task):
         'action': task.action,
         'params': db.task_parameter_get_all_by_task_uuid(task.uuid)
     }
-    return task_dict
 
 
-def _make_crontab_line_for_task(task):
-    minute, hour, day_of_week = task.cron_schedule.split(' ')
-    day_of_month = "*"
-    month = "*"
-    schedule = ' '.join([minute, hour, day_of_month, month, day_of_week])
-    line = '%s tempo-push-task %s' % (schedule, task.uuid)
-    return line
-
-
-def _write_cron_data(cron_data):
-    PIPE = subprocess.PIPE
-    p = subprocess.Popen(
-        ['crontab', '-'], stdin=PIPE, stdout=PIPE, stderr=PIPE)
-    stdout, stderr = p.communicate(cron_data)
-    if p.returncode:
-        app.logger.error('Error running crontab update: %s' % p.returncode)
-    if stdout:
-        app.logger.error('Output from crontab update:\n\n%s' % stdout)
-    if stderr:
-        app.logger.error('Error from crontab update:\n\n%s' % stderr)
-
-
-def _update_crontab():
-    lines = [_make_crontab_line_for_task(task) for task in db.task_get_all()]
-    # NOTE(sirp): cron requires a trailing newline on the final entry,
-    # otherwise it won't install the new cron entries
-    cron_data = '\n'.join(lines) + '\n'
-    _write_cron_data(cron_data)
-
-
-def start(*args, **kwargs):
+def start():
     """Starts up the flask API worker"""
-    app.run(*args, **kwargs)
+    if CFG.api.daemonized:
+        # TODO(mdietz): there's a cleaner way to do this, but this works well
+        # as a way of backgrounding the server for now
+        import daemon
+        from eventlet import wsgi
+        import eventlet
+        with daemon.DaemonContext():
+            wsgi.server(eventlet.listen(('', CFG.api.port)), app)
+    else:
+        app.run(port=CFG.api.port, debug=CFG.debug)
