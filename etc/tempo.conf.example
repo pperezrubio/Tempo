@@ -2,6 +2,12 @@
 port=8080
 daemonized=True
 
+[cron]
+tempo_enqueue_path=/usr/local/bin
+
+# DEBUG ONLY
+schedule_override=* * * * *
+
 [log]
 file_config=tempo-logging.conf
 
