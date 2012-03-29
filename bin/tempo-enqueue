@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
+#
 # Copyright 2011 Rackspace
 # All Rights Reserved.
 #
@@ -16,10 +16,7 @@
 #    See the License for the specific language governing permissions and
 #    limitations under the License.
 
-""" Wrapper script use to run Tempo jobs.
-
-Handles checking of return codes and publishing of notifications.
-"""
+"""Push jobs to the Tempo task queue."""
 
 import os
 import sys
@@ -30,15 +27,17 @@ possible_topdir = os.path.normpath(os.path.join(os.path.abspath(sys.argv[0]),
 if os.path.exists(os.path.join(possible_topdir, 'tempo', '__init__.py')):
     sys.path.insert(0, possible_topdir)
 
-import tempo.command
-
+from tempo import config
+from tempo import log
+from tempo import queue
 
 if __name__ == '__main__':
-    worker = tempo.command.QueueWorker(
-        exchange='tempo',
-        queue='tempo.tasks',
-        key='tasks',
-        logger_name='tempo-queue-worker'
-    )
-    worker.configure()
-    worker.run()
+    args = config.CFG(sys.argv[1:])
+    log.setup()
+
+    if len(args) < 1:
+        sys.exit('ERROR: Task UUID needed as argument.')
+
+    topic = 'tempo.tasks'
+    message = dict(task_uuid=args[0])
+    queue.publish_message(topic, message)

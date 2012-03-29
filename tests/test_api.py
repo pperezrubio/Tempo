@@ -1,5 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
+#
 # Copyright 2011 Rackspace
 # All Rights Reserved.
 #
@@ -21,7 +21,10 @@ import unittest
 import stubout
 
 from tempo import api
+from tempo import cron
 from tempo import db
+from tempo.openstack.common import utils as common_utils
+from tempo.openstack.common import exception as common_exception
 
 TEST_UUID = '00010203-0405-0607-0809-0a0b0c0d0e0f'
 
@@ -43,10 +46,10 @@ class APITest(unittest.TestCase):
             return []
 
         self.stubs.Set(db, 'task_get_all', stubbed_index)
-        res = self.app.get('/%s' % api.resources_name)
+        res = self.app.get('/periodic_tasks')
         body = json.loads(res.data)
         self.assertEqual(res.status_code, 200)
-        self.assertEqual(len(body[api.resources_name]), 0)
+        self.assertEqual(len(body['periodic_tasks']), 0)
 
     def test_index_with_items(self):
         def stubbed_index():
@@ -55,10 +58,10 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_get_all', stubbed_index)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
-        res = self.app.get('/%s' % api.resources_name)
+        res = self.app.get('/periodic_tasks')
         self.assertEqual(res.status_code, 200)
         body = json.loads(res.data)
-        self.assertEqual(len(body[api.resources_name]), 5)
+        self.assertEqual(len(body['periodic_tasks']), 5)
 
     def test_show_item(self):
         def stubbed_show(id):
@@ -66,10 +69,10 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_get', stubbed_show)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
-        res = self.app.get('/%s/%s' % (api.resources_name, TEST_UUID))
+        res = self.app.get('/periodic_tasks/%s' % TEST_UUID)
         self.assertEqual(res.status_code, 200)
         body = json.loads(res.data)
-        self.assertEqual(body[api.resource_name], 'foo')
+        self.assertEqual(body['periodic_task'], 'foo')
 
     def test_create_item(self):
         self.called = False
@@ -80,10 +83,10 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
-        self.stubs.Set(api, '_update_crontab', lambda: None)
+        self.stubs.Set(cron, 'update', lambda: None)
         body = {'action': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0', 'rotation': 3}
-        res = self.app.post('/%s/%s' % (api.resources_name, TEST_UUID),
+        res = self.app.post('/periodic_tasks/%s' % TEST_UUID,
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, True)
@@ -98,10 +101,10 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
-        self.stubs.Set(api, '_update_crontab', lambda: None)
+        self.stubs.Set(cron, 'update', lambda: None)
         body = {'action': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': '0 0 0'}
-        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
+        res = self.app.put('/periodic_tasks/%s' % TEST_UUID,
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, True)
@@ -116,7 +119,7 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'instance_uuid': 'abcdef', 'recurrence': '0 0 0'}
-        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
+        res = self.app.put('/periodic_tasks/%s' % TEST_UUID,
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, False)
@@ -131,7 +134,7 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'action': 'snapshot', 'recurrence': '0 0 0'}
-        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
+        res = self.app.put('/periodic_tasks/%s' % TEST_UUID,
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, False)
@@ -146,7 +149,7 @@ class APITest(unittest.TestCase):
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         body = {'action': 'snapshot', 'instance_uuid': 'abcdef'}
-        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
+        res = self.app.put('/periodic_tasks/%s' % TEST_UUID,
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(self.called, False)
@@ -159,17 +162,17 @@ class APITest(unittest.TestCase):
             self.called = True
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
-        self.stubs.Set(api, '_update_crontab', lambda: None)
-        res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
+        self.stubs.Set(cron, 'update', lambda: None)
+        res = self.app.delete('/periodic_tasks/%s' % TEST_UUID)
         self.assertEqual(self.called, True)
         self.assertEqual(res.status_code, 204)
 
     def test_delete_item_not_exist_fails(self):
         def stubbed_delete(id):
-            raise db.NotFoundException()
+            raise common_exception.NotFound()
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
-        res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
+        res = self.app.delete('/periodic_tasks/%s' % TEST_UUID)
         self.assertEqual(res.status_code, 404)
 
     def test_delete_item_random_breakage_fails(self):
@@ -177,7 +180,7 @@ class APITest(unittest.TestCase):
             raise Exception("KABOOM")
 
         self.stubs.Set(db, 'task_delete', stubbed_delete)
-        res = self.app.delete('/%s/%s' % (api.resources_name, TEST_UUID))
+        res = self.app.delete('/periodic_tasks/%s' % TEST_UUID)
         self.assertEqual(res.status_code, 500)
 
 
@@ -208,25 +211,27 @@ class TestCronOutput(APITest):
             task = self.stub_rvs['create']
             return [task]
 
-        def stubbed_write_cron_data(cron_data):
-            self.stub_rvs['write_cron_data'] = cron_data
+        def stubbed_execute(*cmd, **kwargs):
+            self.stub_rvs['cmd'] = list(cmd)
+            self.stub_rvs['stdin'] = kwargs.get('process_input')
+            return 0, '', ''
 
         self.stubs.Set(db, 'task_create_or_update', stubbed_create)
         self.stubs.Set(db, 'task_get_all', stubbed_get_all)
         self.stubs.Set(api, '_make_task_dict', lambda t: t)
-        self.stubs.Set(api, '_write_cron_data', stubbed_write_cron_data)
+        self.stubs.Set(common_utils, 'execute', stubbed_execute)
 
     def assertProperlyGeneratedCron(self, recurrence, expected):
         body = {'action': 'snapshot', 'instance_uuid': 'abcdef',
                 'recurrence': recurrence}
-        res = self.app.put('/%s/%s' % (api.resources_name, TEST_UUID),
+        res = self.app.put('/periodic_tasks/%s' % TEST_UUID,
                             content_type='application/json',
                             data=json.dumps(body))
         self.assertEqual(res.status_code, 202)
+        self.assertEqual(self.stub_rvs['cmd'], ['crontab', '-'])
 
-        expected = '%s tempo-push-task %s\n' % (expected, TEST_UUID)
-        cron_data = self.stub_rvs['write_cron_data']
-        self.assertEqual(cron_data, expected)
+        expected_stdin = '%s tempo-enqueue %s\n' % (expected, TEST_UUID)
+        self.assertEqual(self.stub_rvs['stdin'], expected_stdin)
 
     def test_create_hourly_start_at_beginning_of_hour(self):
         self.assertProperlyGeneratedCron('0 * *', '0 * * * *')

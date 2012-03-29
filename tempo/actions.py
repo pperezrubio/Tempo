@@ -1,5 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
+#
 # Copyright 2011 Rackspace
 # All Rights Reserved.
 #
@@ -16,8 +16,8 @@
 #    limitations under the License.
 import logging
 
-import tempo.command
-import tempo.db
+from tempo import db
+from tempo.openstack.common import utils as common_utils
 
 
 logger = logging.getLogger('tempo.actions')
@@ -25,13 +25,13 @@ logger = logging.getLogger('tempo.actions')
 
 def snapshot(task):
     snapshot_name = 'snapshot'
-    tempo.command.execute_cmd(
-        ['nova', 'image-create', task.instance_uuid, snapshot_name])
+    common_utils.execute(
+        'nova', 'image-create', task.instance_uuid, snapshot_name)
 
 
 def _backup(task, backup_type):
     task_uuid = task.uuid
-    params = tempo.db.task_parameter_get_all_by_task_uuid(task_uuid)
+    params = db.task_parameter_get_all_by_task_uuid(task_uuid)
     rotation = params.get('rotation', '0')
 
     try:
@@ -42,9 +42,9 @@ def _backup(task, backup_type):
         rotation = 0
 
     backup_name = backup_type
-    tempo.command.execute_cmd(
-        ['nova', 'backup', task.instance_uuid, backup_name, backup_type,
-         str(rotation)])
+    common_utils.execute(
+        'nova', 'backup', task.instance_uuid, backup_name, backup_type,
+        str(rotation))
 
 
 def daily_backup(task):

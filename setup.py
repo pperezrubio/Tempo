@@ -23,7 +23,7 @@ from setuptools.command.sdist import sdist
 
 setup(
     name='tempo',
-    version='0.13',
+    version='0.14',
     description='Tempo Cron-as-a-Service',
     license='Apache License (2.0)',
     author='OpenStack',
@@ -40,5 +40,6 @@ setup(
         'Environment :: No Input/Output (Daemon)',
     ],
     scripts=['bin/tempo-api',
-             'bin/tempo-push-task',
-             'bin/tempo-queue-worker'])
+             'bin/tempo-enqueue',
+             'bin/tempo-manage',
+             'bin/tempo-worker'])

@@ -1,5 +1,5 @@
 # vim: tabstop=4 shiftwidth=4 softtabstop=4
-
+#
 # Copyright 2011 Rackspace
 # All Rights Reserved.
 #
@@ -23,19 +23,33 @@ from sqlalchemy.orm import exc
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.sql.expression import literal_column
 
-from tempo.db import models, migration
+from tempo import config
+from tempo.db import models
+from tempo.db import migration
+from tempo.openstack.common import cfg
+from tempo.openstack.common import exception as common_exception
+
+CFG = config.CFG
+
+db_opts = [
+    # TODO(sirp): make sql_connection match Nova exactly
+    cfg.StrOpt('sql_connection',
+               default='sqlite:///tempo.sqlite',
+               help='The SQLAlchemy connection string used to connect to the '
+                    'database'),
+    cfg.IntOpt('sql_idle_timeout',
+               default=3600,
+               help='timeout before idle sql connections are reaped')
+]
+
+db_group = cfg.OptGroup(name='db', title='Database options')
+CFG.register_group(db_group)
+CFG.register_opts(db_opts, group=db_group)
 
 _ENGINE = None
-_MAKER = None
-
-BASE_ATTRS = set(['id', 'created_at', 'updated_at', 'deleted_at', 'deleted'])
 
 
-class NotFoundException(Exception):
-    pass
-
-
-def configure_db(options):
+def get_engine():
     """
     Establish the database, create an engine if needed, and
     register the models.
@@ -44,26 +58,23 @@ def configure_db(options):
     """
     global _ENGINE
     if not _ENGINE:
-        _ENGINE = create_engine(options.sql_connection,
-                                pool_recycle=options.sql_idle_timeout)
-        logger = logging.getLogger('sqlalchemy.engine')
-        if options.debug:
-            logger.setLevel(logging.DEBUG)
-        elif options.verbose:
-            logger.setLevel(logging.INFO)
+        _ENGINE = create_engine(CFG.db.sql_connection,
+                                pool_recycle=CFG.db.sql_idle_timeout)
+    return _ENGINE
 
-        migration.db_sync(options)
+
+_MAKER = None
 
 
 def get_session(autocommit=True, expire_on_commit=False):
     """Helper method to grab session"""
-    global _MAKER, _ENGINE
+    global _MAKER
     if not _MAKER:
-        assert _ENGINE
-        _MAKER = sessionmaker(bind=_ENGINE,
+        _MAKER = sessionmaker(bind=get_engine(),
                               autocommit=autocommit,
                               expire_on_commit=expire_on_commit)
-    return _MAKER()
+    session = _MAKER()
+    return session
 
 
 def task_get_all(session=None):
@@ -85,7 +96,8 @@ def task_get(task_uuid, session=None):
                        filter_by(deleted=False).\
                        one()
     except exc.NoResultFound:
-        raise NotFoundException("No task found with UUID %s" % task_uuid)
+        raise common_exception.NotFound(
+                "No task found with UUID %s" % task_uuid)
 
 
 def task_create_or_update(task_uuid, values, session=None):
@@ -94,7 +106,7 @@ def task_create_or_update(task_uuid, values, session=None):
 
     try:
         task_ref = task_get(task_uuid, session=session)
-    except NotFoundException, e:
+    except common_exception.NotFound:
         task_ref = models.Task()
 
     task_ref.update(values)
@@ -144,7 +156,6 @@ def task_parameter_delete(task_uuid, key, session=None):
                     'updated_at': literal_column('updated_at')})
 
 
-
 def _task_parameter_get_item(task_uuid, key, session=None):
     if not session:
         session = get_session()
@@ -168,7 +179,8 @@ def task_parameter_update(task_uuid, params, delete=False, session=None):
             if key not in params:
                 task_parameter_delete(task_uuid, key, session=session)
 
-    # Now update all existing items with new values, or create new param objects
+    # Now update all existing items with new values, or create new param
+    # objects
     for key, value in params.iteritems():
         if key in orig_params:
             param_ref = _task_parameter_get_item(

@@ -1,1 +1,6 @@
 *.pyc
+dist/
+build/
+tempo.egg-info/
+*.sqlite
+*.log
