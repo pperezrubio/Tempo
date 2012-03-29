@@ -31,36 +31,24 @@ from tempo import config
 from tempo import cron
 from tempo import log
 from tempo.db import migration
-from tempo.openstack.common import cfg
 
 CFG = config.CFG
-
-cli_opts = [
-    cfg.BoolOpt('dry-run',
-                default=False,
-                help='Dry run mode')
-]
-
-CFG.register_cli_opts(cli_opts)
 
 if __name__ == '__main__':
     args = CFG(sys.argv[1:])
     log.setup()
 
     if not args:
-        sys.exit("usage: tempo-api < db-sync | update-cron >")
+        sys.exit("usage: tempo-api < db-sync | print-crontab |"
+                 " update-crontab >")
 
     cmd = args[0]
 
-    if cmd == "update-cron":
-        if CFG.dry_run:
-            print cron.crontab()
-        else:
-            cron.update()
+    if cmd == "update-crontab":
+        cron.update()
+    elif cmd == "print-crontab":
+        print cron.crontab()
     elif cmd == "db-sync":
-        if CFG.dry_run:
-            sys.exit('dry-run not supported for db-sync')
-        else:
-            migration.db_sync()
+        migration.db_sync()
     else:
         sys.exit("Unknown cmd '%s'" % cmd)
